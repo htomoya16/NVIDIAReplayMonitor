@@ -11,7 +11,8 @@ NVIDIA Appのインスタントリプレイを30秒間隔で確認し、オフ�
 | NVIDIA App | 11.0.9.585で動作確認済み |
 | オーバーレイ | 「NVIDIA オーバーレイ」をオン |
 | エージェントとアプリの接続 | 「AI エージェントが NVIDIA App を制御できるようにする」をオン |
-| MCPアクセス | standard以上 |
+
+NVIDIA Appを開き、「設定」から「オーバーレイ」と「エージェントとアプリの接続」の各スイッチをオンにしてください。
 
 ## 導入・自動起動
 
@@ -19,13 +20,26 @@ NVIDIA Appのインスタントリプレイを30秒間隔で確認し、オフ�
 2. `NVIDIAReplayMonitor-<バージョン>-windows-amd64.zip` をダウンロードする。
 3. ZIPを右クリック →「すべて展開」を選ぶ。
 4. `Win + R` → `%LOCALAPPDATA%` を開く。
-5. 展開先にある `NVIDIAReplayMonitor` フォルダを、開いた場所へ移動する。配置先は `%LOCALAPPDATA%\NVIDIAReplayMonitor` になる。
+5. 展開先にある `NVIDIAReplayMonitor` フォルダを、`%LOCALAPPDATA%` へ移動する。
 6. 配置したフォルダの `NVIDIAReplayMonitor.exe` を右クリック →「その他のオプションを確認」→「ショートカットの作成」を選ぶ。
 7. `Win + R` → `shell:startup` で開いたフォルダへ、作成した `NVIDIAReplayMonitor.exe - ショートカット` を移動する。
 8. スタートアップ内で、ショートカットの名前を `NVIDIAReplayMonitor` に変更する。
-9. ショートカットをダブルクリックして起動する。以後はWindowsへのログイン時に起動する。
+9. ショートカットをダブルクリックして起動する。以後、Windowsへのログイン時に自動起動します。
 
-初回は、警告通知の設定のためNVIDIAオーバーレイを再起動します。録画・インスタントリプレイが動作中の場合は、オフになってから設定します。
+## 通知の抑止
+
+DRM保護コンテンツの視聴中は、30秒ごとの復帰試行によってNVIDIAの警告通知が表示されます。この警告だけを抑止するため、初回の復帰試行前にNVIDIA Appの通知設定を変更しています。
+
+変更は、NVIDIA Overlayの内部DBにある以下の設定です。
+
+| 項目 | 内容 |
+| --- | --- |
+| データベース | `shareclient` |
+| 設定領域 | `IgoNotifications` |
+| 設定名 | `noteProtectedContentWarning` |
+| 変更値 | `false` |
+
+設定変更時はNVIDIA オーバーレイを再起動します。録画・インスタントリプレイが動作中の場合は、オフになってから設定します。変更した通知設定はアンインストール時に元へ戻します。
 
 ## 操作
 
@@ -66,3 +80,8 @@ NVIDIA Appのインスタントリプレイを30秒間隔で確認し、オフ�
 | --- | --- |
 | 診断結果 | `%LOCALAPPDATA%\NVIDIAReplayMonitor\doctor.txt` |
 | アンインストール失敗時の詳細 | `%LOCALAPPDATA%\NVIDIAReplayMonitor\uninstall-error.txt` |
+
+## 参考資料
+
+- [NVIDIA App MCPの操作仕様](https://github.com/NVIDIA/nvidia-app-skills/blob/main/skills/nvidia-app/references/mcp-tool-contract.md)
+- [NVIDIA App MCPの接続仕様](https://github.com/NVIDIA/nvidia-app-skills/blob/main/skills/nvidia-app/references/connection.md)
