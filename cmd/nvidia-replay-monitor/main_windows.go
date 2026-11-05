@@ -25,7 +25,13 @@ func run(args []string) int {
 	if handled, code := runCommand(opts); handled {
 		return code
 	}
+	release, err := winapp.AcquireMaintenance()
+	if err != nil {
+		showMessage(err.Error(), true)
+		return 1
+	}
 	instance, err := winapp.AcquireInstance()
+	release()
 	if errors.Is(err, winapp.ErrAlreadyRunning) {
 		return 0
 	}
@@ -39,6 +45,12 @@ func run(args []string) int {
 	instance.WatchStop(cancel)
 	client := nvidia.NewClient(version, nvidia.DiscoverEndpoint)
 	defer client.Close()
-	usecase.NewMonitor(client).Run(ctx)
+	prepare := warningInitializer(client)
+	// With Overlay already off, setup can safely run without MCP. This also
+	// permits the manual fallback before the NVIDIA app is turned back on.
+	if running, err := winapp.OverlayRunning(); err == nil && !running {
+		_ = prepare(ctx)
+	}
+	usecase.NewMonitor(usecase.NewNotificationReplay(client, prepare)).Run(ctx)
 	return 0
 }

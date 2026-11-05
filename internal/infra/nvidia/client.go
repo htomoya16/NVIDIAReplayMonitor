@@ -165,6 +165,37 @@ func (c *Client) IsReplayEnabled(ctx context.Context) (bool, error) {
 	return parseReplayEnabled(result.StructuredContent)
 }
 
+// CanRestartOverlay requires explicit idle states. Missing fields are unknown,
+// and neither a recording nor an Instant Replay buffer is interrupted.
+func (c *Client) CanRestartOverlay(ctx context.Context) error {
+	result, err := c.call(ctx, statusTool, map[string]any{})
+	if err != nil {
+		return err
+	}
+	return parseOverlayIdle(result.StructuredContent)
+}
+
+func parseOverlayIdle(content any) error {
+	var state struct {
+		Recording *bool `json:"recordingActive"`
+		Replay    *bool `json:"instantReplayEnabled"`
+	}
+	b, err := json.Marshal(content)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(b, &state); err != nil {
+		return err
+	}
+	if state.Recording == nil || state.Replay == nil {
+		return errors.New("録画状態が不明なためOverlayを終了しません。Overlayを手動でオフにして再実行してください")
+	}
+	if *state.Recording || *state.Replay {
+		return errors.New("録画またはインスタントリプレイが動作中です。オフにしてから再実行してください")
+	}
+	return nil
+}
+
 func parseReplayEnabled(content any) (bool, error) {
 	var state struct {
 		Enabled *bool `json:"instantReplayEnabled"`

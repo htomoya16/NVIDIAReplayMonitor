@@ -55,11 +55,19 @@ func parseOptions(args []string) (options, error) {
 }
 
 func runCommand(opts options) (bool, int) {
+	if opts.uninstall {
+		release, err := winapp.AcquireMaintenance()
+		if err != nil {
+			showMessage(err.Error(), true)
+			return true, 1
+		}
+		defer release()
+	}
 	var message string
 	var err error
 	switch {
 	case opts.help:
-		message = "NVIDIAReplayMonitor " + version + "\n\n引数なし: 30秒ごとに監視\n--stop: 監視停止\n--uninstall: 監視停止とスタートアップのNVIDIAReplayMonitor.lnk削除\n--doctor: 状態を変更せず診断\n--doctor --output <ファイル>: 診断結果を保存\n--version: バージョン\n--licenses <ファイル>: 依存ライセンスを出力"
+		message = "NVIDIAReplayMonitor " + version + "\n\n引数なし: 警告抑止を自動設定し、30秒ごとに監視\n--stop: 監視停止\n--uninstall: 監視停止・警告設定の復元・自動起動ショートカット削除\n--doctor: 状態を変更せず診断\n--doctor --output <ファイル>: 診断結果を保存\n--version: バージョン\n--licenses <ファイル>: 依存ライセンスを出力"
 	case opts.version:
 		message = fmt.Sprintf("NVIDIAReplayMonitor %s (%s/%s)", version, runtime.GOOS, runtime.GOARCH)
 	case opts.licenses != "":
@@ -85,14 +93,8 @@ func runCommand(opts options) (bool, int) {
 		}
 		return true, 0
 	case opts.uninstall:
-		_, stopErr := winapp.StopMonitor()
-		removed, removeErr := winapp.RemoveStartupShortcut()
-		err = errors.Join(stopErr, removeErr)
-		message = "監視は停止しています。自動起動ショートカットはありませんでした。"
-		if removed {
-			message = "監視を停止し、自動起動ショートカットを削除しました。"
-		}
-		message += "\nexe本体と不要な診断結果は手動で削除してください。"
+		err = uninstall(winapp.StopMonitor, restoreWarning, winapp.RemoveStartupShortcut)
+		message = "監視停止、警告設定の復元、自動起動ショートカットの解除が完了しました。\nexe・uninstall.cmd・同梱READMEは残っています。不要ならこれらのファイルを削除してください。"
 	case opts.stop:
 		var stopped bool
 		stopped, err = winapp.StopMonitor()
@@ -110,4 +112,16 @@ func runCommand(opts options) (bool, int) {
 	}
 	showMessage(message, false)
 	return true, 0
+}
+
+// Restoration must succeed before removing startup or announcing completion.
+func uninstall(stop func() (bool, error), restore func() error, remove func() (bool, error)) error {
+	if _, err := stop(); err != nil {
+		return err
+	}
+	if err := restore(); err != nil {
+		return fmt.Errorf("削除は完了していません。自動起動登録は削除していません。\n詳細を確認し、復元情報を削除せず再実行してください。\n%w", err)
+	}
+	_, err := remove()
+	return err
 }

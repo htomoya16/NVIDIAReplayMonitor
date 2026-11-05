@@ -4,10 +4,12 @@ go 1.25.0
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	golang.org/x/sys v0.41.0
 )
 
 require (
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect

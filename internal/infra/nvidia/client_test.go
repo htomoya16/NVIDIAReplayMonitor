@@ -20,6 +20,28 @@ type fakeNVIDIA struct {
 	badArguments                                     bool
 }
 
+func TestOverlayRestartRequiresExplicitIdleCapture(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		state any
+		safe  bool
+	}{
+		{"idle", map[string]any{"recordingActive": false, "instantReplayEnabled": false}, true},
+		{"recording", map[string]any{"recordingActive": true, "instantReplayEnabled": false}, false},
+		{"replay-buffer", map[string]any{"recordingActive": false, "instantReplayEnabled": true}, false},
+		{"missing-recording", map[string]any{"instantReplayEnabled": false}, false},
+		{"missing-replay", map[string]any{"recordingActive": false}, false},
+		{"null", map[string]any{"recordingActive": nil, "instantReplayEnabled": false}, false},
+		{"wrong-type", map[string]any{"recordingActive": "false", "instantReplayEnabled": false}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if safe := parseOverlayIdle(test.state) == nil; safe != test.safe {
+				t.Fatalf("safe=%v", safe)
+			}
+		})
+	}
+}
+
 // Run the real SDK through HTTP requests without depending on the host's
 // loopback networking. Physical Windows networking is checked with --doctor.
 type roundTripFunc func(*http.Request) (*http.Response, error)

@@ -19,6 +19,7 @@ try {
     $notices.Add('NVIDIAReplayMonitor - bundled third-party licenses and notices')
     $goRoot = go env GOROOT
     $notices.Add("`n===== Go standard library =====`n" + [IO.File]::ReadAllText((Join-Path $goRoot 'LICENSE')))
+    $notices.Add("`n===== Chromium IndexedDB ordering reference / BSD-3-Clause =====`n" + [IO.File]::ReadAllText((Join-Path $projectRoot 'internal\notices\chromium.txt')))
     $modules = go list -deps -f '{{if .Module}}{{.Module.Path}}|{{.Module.Version}}|{{.Module.Dir}}{{end}}' ./cmd/nvidia-replay-monitor | Sort-Object -Unique
     if ($LASTEXITCODE -ne 0) { throw 'go list failed' }
     foreach ($module in $modules) {
@@ -46,8 +47,21 @@ try {
     New-Item -ItemType Directory -Force -Path (Join-Path $projectRoot 'dist') | Out-Null
     go build -trimpath -ldflags "-H=windowsgui -s -w -X main.version=$Version" -o dist/NVIDIAReplayMonitor.exe ./cmd/nvidia-replay-monitor
     if ($LASTEXITCODE -ne 0) { throw 'go build failed' }
-    $hash = (Get-FileHash -LiteralPath 'dist/NVIDIAReplayMonitor.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
-    [IO.File]::WriteAllText((Join-Path $projectRoot 'dist\SHA256SUMS.txt'), "$hash  NVIDIAReplayMonitor.exe`n", [Text.UTF8Encoding]::new($false))
+    foreach ($name in @('uninstall.cmd')) {
+        $scriptText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)).Replace("`r`n", "`n").Replace("`n", "`r`n")
+        [IO.File]::WriteAllText((Join-Path $projectRoot "dist\$name"), $scriptText, [Text.ASCIIEncoding]::new())
+    }
+    # Remove the obsolete generated entry point from earlier development builds.
+    $oldMuteScript = Join-Path $projectRoot 'dist\mute-warning.cmd'
+    if (Test-Path -LiteralPath $oldMuteScript) { Remove-Item -LiteralPath $oldMuteScript }
+    Copy-Item -LiteralPath 'README.md' -Destination 'dist\README.md' -Force
+    $zipName = "NVIDIAReplayMonitor-$Version-windows-amd64.zip"
+    Compress-Archive -LiteralPath 'dist\NVIDIAReplayMonitor.exe','dist\uninstall.cmd','dist\README.md' -DestinationPath (Join-Path $projectRoot "dist\$zipName") -Force
+    $hashes = foreach ($name in @('NVIDIAReplayMonitor.exe', 'uninstall.cmd', 'README.md', $zipName)) {
+        $hash = (Get-FileHash -LiteralPath (Join-Path $projectRoot "dist\$name") -Algorithm SHA256).Hash.ToLowerInvariant()
+        "$hash  $name"
+    }
+    [IO.File]::WriteAllText((Join-Path $projectRoot 'dist\SHA256SUMS.txt'), ($hashes -join "`n")+"`n", [Text.UTF8Encoding]::new($false))
     Write-Output "Built dist/NVIDIAReplayMonitor.exe ($Version)"
 } finally {
     Pop-Location

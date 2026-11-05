@@ -12,6 +12,24 @@ import (
 
 var ErrAlreadyRunning = errors.New("監視はすでに起動しています")
 
+// The same gate covers setup, uninstall and starting a new monitor, so a new
+// monitor cannot enable capture between the idle check and Overlay shutdown.
+func AcquireMaintenance() (func(), error) {
+	name, err := objectName("Maintenance")
+	if err != nil {
+		return nil, err
+	}
+	h, err := windows.CreateMutex(nil, false, name)
+	if errors.Is(err, windows.ERROR_ALREADY_EXISTS) {
+		windows.CloseHandle(h)
+		return nil, errors.New("設定変更またはアンインストールを実行中です。完了後に再実行してください")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return func() { windows.CloseHandle(h) }, nil
+}
+
 type Instance struct {
 	closeOnce sync.Once
 	mutex     windows.Handle

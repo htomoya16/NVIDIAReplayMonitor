@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"nvidiareplaymonitor/internal/infra/notification"
 	"nvidiareplaymonitor/internal/infra/nvidia"
 	"nvidiareplaymonitor/internal/infra/winapp"
 	"nvidiareplaymonitor/internal/usecase"
@@ -34,6 +35,22 @@ func buildDoctorReport() (string, bool) {
 		fmt.Fprintf(&report, "ショートカット確認エラー: %v\n", shortcutErr)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), usecase.CycleTimeout)
+	if manager, err := notification.DefaultManager(); err == nil {
+		exists, stateErr := manager.HasState()
+		fmt.Fprintf(&report, "警告設定の復元情報: %v\n場所: %s\n", exists, manager.StatePath())
+		configured, configErr := manager.Configured()
+		if configured {
+			report.WriteString("警告抑止の初期設定: 完了\n")
+		} else {
+			report.WriteString("警告抑止の初期設定: 未完了（次の有効化前に自動設定）\n")
+		}
+		if configErr != nil {
+			fmt.Fprintf(&report, "初期設定確認エラー: %v\n", configErr)
+		}
+		if stateErr != nil {
+			fmt.Fprintf(&report, "復元情報確認エラー: %v\n", stateErr)
+		}
+	}
 	defer cancel()
 	client := nvidia.NewClient(version, nvidia.DiscoverEndpoint)
 	defer client.Close()
