@@ -1,6 +1,9 @@
 package winapp
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestRestartTargetIdentityAndSafety(t *testing.T) {
 	expected := restartIdentity{PID: 123}
@@ -27,5 +30,16 @@ func TestRestartTargetIdentityAndSafety(t *testing.T) {
 				t.Fatalf("safe=%v error=%v", test.safe, err)
 			}
 		})
+	}
+}
+
+func TestRestartFailureCannotHideRestorationFailure(t *testing.T) {
+	restoreFailure, restartFailure := errors.New("restore failed"), errors.New("restart failed")
+	var notice *OverlayRestartWarning
+	if err := operationResult(restoreFailure, restartFailure); !errors.Is(err, restoreFailure) || errors.As(err, &notice) {
+		t.Fatalf("restoration failure treated as warning: %v", err)
+	}
+	if err := operationResult(nil, restartFailure); !errors.As(err, &notice) {
+		t.Fatalf("completed restoration not identified: %v", err)
 	}
 }

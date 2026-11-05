@@ -32,6 +32,22 @@ type restartProcessInfo struct {
 	Restartable              int32
 }
 
+// OverlayRestartWarning means the setting operation succeeded. Removal can
+// complete while telling the user to check NVIDIA's restart separately.
+type OverlayRestartWarning struct{ Cause error }
+
+func (w *OverlayRestartWarning) Error() string {
+	return "Overlay再起動後の確認に失敗しました。NVIDIA Appで状態を確認してください: " + w.Cause.Error()
+}
+func (w *OverlayRestartWarning) Unwrap() error { return w.Cause }
+
+func operationResult(changeErr, restartErr error) error {
+	if changeErr == nil && restartErr != nil {
+		return &OverlayRestartWarning{Cause: restartErr}
+	}
+	return errors.Join(changeErr, restartErr)
+}
+
 // WithOverlayStopped uses Restart Manager without RmForceShutdown. Only the
 // current user's verified Overlay root is registered; no services or file users.
 // Failure to close or restart is returned to the caller, never hidden.
@@ -73,12 +89,12 @@ func WithOverlayStopped(ctx context.Context, idle, ready func(context.Context) e
 	defer func() {
 		dll.NewProc("RmRestart").Call(uintptr(session), 0, 0)
 		restartErr := restartOverlay(process.path)
-		if restartErr == nil {
+		if restartErr == nil && ctx.Err() == nil {
 			readyContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			restartErr = ready(readyContext)
 			cancel()
 		}
-		err = errors.Join(err, restartErr)
+		err = operationResult(err, restartErr)
 	}()
 	r, _, _ = dll.NewProc("RmShutdown").Call(uintptr(session), 0, 0)
 	if r != 0 {

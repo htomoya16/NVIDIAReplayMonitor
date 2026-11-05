@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"nvidiareplaymonitor/internal/infra/winapp"
 	"nvidiareplaymonitor/internal/notices"
@@ -56,7 +58,15 @@ func parseOptions(args []string) (options, error) {
 
 func runCommand(opts options) (bool, int) {
 	if opts.uninstall {
-		release, err := winapp.AcquireMaintenance()
+		// Setup owns Maintenance while it runs. Request cancellation before
+		// waiting for that gate; otherwise the first uninstall is rejected.
+		if _, err := winapp.StopForUninstall(); err != nil {
+			showMessage(err.Error(), true)
+			return true, 1
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		release, err := winapp.WaitMaintenance(ctx)
+		cancel()
 		if err != nil {
 			showMessage(err.Error(), true)
 			return true, 1
@@ -93,8 +103,12 @@ func runCommand(opts options) (bool, int) {
 		}
 		return true, 0
 	case opts.uninstall:
-		err = uninstall(winapp.StopMonitor, restoreWarning, winapp.RemoveStartupShortcut)
-		message = "監視停止、警告設定の復元、自動起動ショートカットの解除が完了しました。\nexe・uninstall.cmd・同梱READMEは残っています。不要ならこれらのファイルを削除してください。"
+		var warning error
+		warning, err = uninstall(winapp.StopMonitor, restoreWarning, winapp.RemoveStartupShortcut)
+		message = "監視停止、警告設定の復元、自動起動ショートカットの解除が完了しました。\n配布ファイルの削除はuninstall.cmdで行います。"
+		if warning != nil {
+			message += "\n\n注意: " + warning.Error()
+		}
 	case opts.stop:
 		var stopped bool
 		stopped, err = winapp.StopMonitor()
@@ -115,13 +129,17 @@ func runCommand(opts options) (bool, int) {
 }
 
 // Restoration must succeed before removing startup or announcing completion.
-func uninstall(stop func() (bool, error), restore func() error, remove func() (bool, error)) error {
+func uninstall(stop func() (bool, error), restore func() error, remove func() (bool, error)) (warning error, err error) {
 	if _, err := stop(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := restore(); err != nil {
-		return fmt.Errorf("削除は完了していません。自動起動登録は削除していません。\n詳細を確認し、復元情報を削除せず再実行してください。\n%w", err)
+		var restartWarning *winapp.OverlayRestartWarning
+		if !errors.As(err, &restartWarning) {
+			return nil, fmt.Errorf("削除は完了していません。自動起動登録は削除していません。\n詳細を確認し、復元情報を削除せず再実行してください。\n%w", err)
+		}
+		warning = restartWarning
 	}
-	_, err := remove()
-	return err
+	_, err = remove()
+	return warning, err
 }

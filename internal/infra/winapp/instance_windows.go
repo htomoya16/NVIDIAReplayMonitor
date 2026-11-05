@@ -1,6 +1,7 @@
 package winapp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -11,6 +12,7 @@ import (
 )
 
 var ErrAlreadyRunning = errors.New("監視はすでに起動しています")
+var ErrMaintenanceBusy = errors.New("設定変更またはアンインストールを実行中です。完了後に再実行してください")
 
 // The same gate covers setup, uninstall and starting a new monitor, so a new
 // monitor cannot enable capture between the idle check and Overlay shutdown.
@@ -22,12 +24,28 @@ func AcquireMaintenance() (func(), error) {
 	h, err := windows.CreateMutex(nil, false, name)
 	if errors.Is(err, windows.ERROR_ALREADY_EXISTS) {
 		windows.CloseHandle(h)
-		return nil, errors.New("設定変更またはアンインストールを実行中です。完了後に再実行してください")
+		return nil, ErrMaintenanceBusy
 	}
 	if err != nil {
 		return nil, err
 	}
 	return func() { windows.CloseHandle(h) }, nil
+}
+
+func WaitMaintenance(ctx context.Context) (func(), error) {
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		release, err := AcquireMaintenance()
+		if !errors.Is(err, ErrMaintenanceBusy) {
+			return release, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("設定処理の終了待ちがタイムアウトしました。ファイルは削除していません: %w", ctx.Err())
+		case <-tick.C:
+		}
+	}
 }
 
 type Instance struct {
@@ -137,6 +155,14 @@ func IsRunning() (bool, error) {
 
 // StopMonitor waits for the monitor's graceful teardown.
 func StopMonitor() (bool, error) {
+	return stopMonitor(30 * time.Second)
+}
+
+func StopForUninstall() (bool, error) {
+	return stopMonitor(time.Minute)
+}
+
+func stopMonitor(timeout time.Duration) (bool, error) {
 	running, err := IsRunning()
 	if err != nil || !running {
 		return false, err
@@ -156,12 +182,12 @@ func StopMonitor() (bool, error) {
 	if err := windows.SetEvent(stop); err != nil {
 		return false, err
 	}
-	result, err := windows.WaitForSingleObject(done, uint32((30*time.Second)/time.Millisecond))
+	result, err := windows.WaitForSingleObject(done, uint32(timeout/time.Millisecond))
 	if err != nil {
 		return false, err
 	}
 	if result != windows.WAIT_OBJECT_0 {
-		return false, errors.New("30秒以内に監視の終了を確認できませんでした")
+		return false, fmt.Errorf("%d秒以内に監視の終了を確認できませんでした", int(timeout/time.Second))
 	}
 	return true, nil
 }

@@ -40,6 +40,16 @@ func configureWarning(parent context.Context, restore bool) error {
 		change = manager.Restore
 	}
 	idle := func(ctx context.Context) error {
+		if restore {
+			// Cancelling first-time setup can leave NVIDIA restarting. Wait for
+			// its read-only API before asking whether capture is idle.
+			readyContext, cancel := context.WithTimeout(ctx, 30*time.Second)
+			err := waitForOverlayMCP(readyContext)
+			cancel()
+			if err != nil {
+				return err
+			}
+		}
 		client := nvidia.NewClient(version, nvidia.DiscoverEndpoint)
 		defer client.Close()
 		return client.CanRestartOverlay(ctx)

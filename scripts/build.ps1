@@ -49,12 +49,14 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'go build failed' }
     foreach ($name in @('uninstall.cmd')) {
         $scriptText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)).Replace("`r`n", "`n").Replace("`n", "`r`n")
+        $scriptText = $scriptText.Replace('__README_SHA256__', (Get-FileHash -LiteralPath 'README.md' -Algorithm SHA256).Hash)
         [IO.File]::WriteAllText((Join-Path $projectRoot "dist\$name"), $scriptText, [Text.ASCIIEncoding]::new())
     }
     # Remove the obsolete generated entry point from earlier development builds.
     $oldMuteScript = Join-Path $projectRoot 'dist\mute-warning.cmd'
     if (Test-Path -LiteralPath $oldMuteScript) { Remove-Item -LiteralPath $oldMuteScript }
     Copy-Item -LiteralPath 'README.md' -Destination 'dist\README.md' -Force
+    & (Join-Path $PSScriptRoot 'test-uninstall.ps1')
     $zipName = "NVIDIAReplayMonitor-$Version-windows-amd64.zip"
     Compress-Archive -LiteralPath 'dist\NVIDIAReplayMonitor.exe','dist\uninstall.cmd','dist\README.md' -DestinationPath (Join-Path $projectRoot "dist\$zipName") -Force
     $hashes = foreach ($name in @('NVIDIAReplayMonitor.exe', 'uninstall.cmd', 'README.md', $zipName)) {
