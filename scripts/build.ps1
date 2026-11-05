@@ -58,7 +58,19 @@ try {
     Copy-Item -LiteralPath 'README.md' -Destination 'dist\README.md' -Force
     & (Join-Path $PSScriptRoot 'test-uninstall.ps1')
     $zipName = "NVIDIAReplayMonitor-$Version-windows-amd64.zip"
-    Compress-Archive -LiteralPath 'dist\NVIDIAReplayMonitor.exe','dist\uninstall.cmd','dist\README.md' -DestinationPath (Join-Path $projectRoot "dist\$zipName") -Force
+    $packageDir = Join-Path $projectRoot ('.cache\release-' + [Guid]::NewGuid().ToString('N') + '\NVIDIAReplayMonitor')
+    New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+    foreach ($name in @('NVIDIAReplayMonitor.exe', 'uninstall.cmd', 'README.md')) {
+        Copy-Item -LiteralPath (Join-Path $projectRoot "dist\$name") -Destination (Join-Path $packageDir $name)
+    }
+    Compress-Archive -LiteralPath $packageDir -DestinationPath (Join-Path $projectRoot "dist\$zipName") -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead((Join-Path $projectRoot "dist\$zipName"))
+    try {
+        $files = @($archive.Entries | Where-Object { $_.Name } | ForEach-Object { $_.FullName.Replace('\', '/') } | Sort-Object)
+        $expected = @('NVIDIAReplayMonitor/NVIDIAReplayMonitor.exe', 'NVIDIAReplayMonitor/uninstall.cmd', 'NVIDIAReplayMonitor/README.md') | Sort-Object
+        if (@(Compare-Object $files $expected).Count) { throw 'Unexpected ZIP folder structure' }
+    } finally { $archive.Dispose() }
     $hashes = foreach ($name in @('NVIDIAReplayMonitor.exe', 'uninstall.cmd', 'README.md', $zipName)) {
         $hash = (Get-FileHash -LiteralPath (Join-Path $projectRoot "dist\$name") -Algorithm SHA256).Hash.ToLowerInvariant()
         "$hash  $name"

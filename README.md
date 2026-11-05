@@ -6,22 +6,24 @@ NVIDIA Appのインスタントリプレイを30秒間隔で確認し、オフ�
 
 | 項目 | 条件 |
 | --- | --- |
-| OS | Windows 11（64bit） |
+| OS | Windows 11（x64） |
 | GPU | NVIDIA Appの録画機能に対応したNVIDIA GPU |
 | NVIDIA App | 11.0.9.585で動作確認済み |
-| NVIDIA Appの設定 | NVIDIAオーバーレイと「エージェントとアプリの接続」をオン |
+| オーバーレイ | 「NVIDIA オーバーレイ」をオン |
+| エージェントとアプリの接続 | 「AI エージェントが NVIDIA App を制御できるようにする」をオン |
 | MCPアクセス | standard以上 |
 
 ## 導入・自動起動
 
 1. GitHubの[Releases](https://github.com/htomoya16/NVIDIAReplayMonitor/releases)を開く。
-2. `NVIDIAReplayMonitor.exe` と `uninstall.cmd` をダウンロードする。
-3. `Win + R` → `%LOCALAPPDATA%` を開き、`NVIDIAReplayMonitor` フォルダを作成する。
-4. ダウンロードした2ファイルを `%LOCALAPPDATA%\NVIDIAReplayMonitor` に置く。
-5. `NVIDIAReplayMonitor.exe` を右クリック →「その他のオプションを確認」→「ショートカットの作成」を選ぶ。
-6. 作成されたショートカットの名前を `NVIDIAReplayMonitor` に変更する。
-7. `Win + R` → `shell:startup` で開いたフォルダへ、そのショートカットを移動する。
-8. ショートカットをダブルクリックして起動する。以後はWindowsへのログイン時に起動する。
+2. `NVIDIAReplayMonitor-<バージョン>-windows-amd64.zip` をダウンロードする。
+3. ZIPを右クリック →「すべて展開」を選ぶ。
+4. `Win + R` → `%LOCALAPPDATA%` を開く。
+5. 展開先にある `NVIDIAReplayMonitor` フォルダを、開いた場所へ移動する。配置先は `%LOCALAPPDATA%\NVIDIAReplayMonitor` になる。
+6. 配置したフォルダの `NVIDIAReplayMonitor.exe` を右クリック →「その他のオプションを確認」→「ショートカットの作成」を選ぶ。
+7. `Win + R` → `shell:startup` で開いたフォルダへ、作成した `NVIDIAReplayMonitor.exe - ショートカット` を移動する。
+8. スタートアップ内で、ショートカットの名前を `NVIDIAReplayMonitor` に変更する。
+9. ショートカットをダブルクリックして起動する。以後はWindowsへのログイン時に起動する。
 
 初回は、警告通知の設定のためNVIDIAオーバーレイを再起動します。録画・インスタントリプレイが動作中の場合は、オフになってから設定します。
 
@@ -41,8 +43,9 @@ NVIDIA Appのインスタントリプレイを30秒間隔で確認し、オフ�
 ## 更新
 
 1. `--stop` で監視を停止する。
-2. [Releases](https://github.com/htomoya16/NVIDIAReplayMonitor/releases)から新しいexeとuninstall.cmdをダウンロードし、同じ場所に上書きする。
-3. exeまたはスタートアップのショートカットから起動する。
+2. [Releases](https://github.com/htomoya16/NVIDIAReplayMonitor/releases)から新しいZIPをダウンロードして展開する。
+3. 展開した `NVIDIAReplayMonitor` フォルダ内のファイルを、配置済みの同名ファイルへ上書きする。
+4. exeまたはスタートアップのショートカットから起動する。
 
 ## 削除
 
@@ -57,7 +60,7 @@ NVIDIA Appのインスタントリプレイを30秒間隔で確認し、オフ�
 ## 問題がある場合
 
 1. `--doctor` で状態を確認する。
-2. NVIDIA Appのオーバーレイとエージェント接続の設定を確認する。
+2. 動作条件の設定を確認する。
 
 | 記録 | 保存先 |
 | --- | --- |
