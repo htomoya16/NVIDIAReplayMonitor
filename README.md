@@ -23,7 +23,7 @@ NVIDIA Appを開き、「設定」から「オーバーレイ」と「エージ�
 5. 展開先にある `NVIDIAReplayMonitor` フォルダを、`%LOCALAPPDATA%` へ移動する。
 6. 配置したフォルダの `NVIDIAReplayMonitor.exe` を右クリック →「その他のオプションを確認」→「ショートカットの作成」を選ぶ。
 7. `Win + R` → `shell:startup` で開いたフォルダへ、作成した `NVIDIAReplayMonitor.exe - ショートカット` を移動する。
-8. スタートアップ内で、ショートカットの名前を `NVIDIAReplayMonitor` に変更する。
+8. スタートアップ内で、ショートカットの名前を `NVIDIAReplayMonitor` に変更する。(名前に `.exe` は付けないこと)
 9. ショートカットをダブルクリックして起動する。以後、Windowsへのログイン時に自動起動します。
 
 ## 通知の抑止
