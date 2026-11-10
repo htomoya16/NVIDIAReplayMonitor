@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 
+	"nvidiareplaymonitor/internal/infra/manualcontrol"
 	"nvidiareplaymonitor/internal/infra/nvidia"
 	"nvidiareplaymonitor/internal/infra/winapp"
 	"nvidiareplaymonitor/internal/usecase"
@@ -45,12 +46,21 @@ func run(args []string) int {
 	instance.WatchStop(cancel)
 	client := nvidia.NewClient(version, nvidia.DiscoverEndpoint)
 	defer client.Close()
+	logPath, statePath, err := manualcontrol.DefaultPaths()
+	if err != nil {
+		showMessage(fmt.Sprintf("操作ログの場所を取得できません: %v", err), true)
+		return 1
+	}
+	control := manualcontrol.New(logPath, statePath)
 	prepare := warningInitializer(client)
 	// With Overlay already off, setup can safely run without MCP. This also
 	// permits the manual fallback before the NVIDIA app is turned back on.
-	if running, err := winapp.OverlayRunning(); err == nil && !running {
-		_ = prepare(ctx)
+	if allowed, err := control.AllowRestore(ctx); err == nil && allowed {
+		if running, err := winapp.OverlayRunning(); err == nil && !running {
+			_ = prepare(ctx)
+		}
 	}
-	usecase.NewMonitor(usecase.NewNotificationReplay(client, prepare)).Run(ctx)
+	guardedClient := usecase.NewControlledReplay(client, control)
+	usecase.NewControlledMonitor(usecase.NewNotificationReplay(guardedClient, prepare), control).Run(ctx)
 	return 0
 }

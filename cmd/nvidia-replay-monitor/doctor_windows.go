@@ -35,6 +35,8 @@ func buildDoctorReport() (string, bool) {
 		fmt.Fprintf(&report, "ショートカット確認エラー: %v\n", shortcutErr)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), usecase.CycleTimeout)
+	manualReport, manualHealthy := manualControlReport()
+	report.WriteString(manualReport)
 	if manager, err := notification.DefaultManager(); err == nil {
 		exists, stateErr := manager.HasState()
 		fmt.Fprintf(&report, "警告設定の復元情報: %v\n場所: %s\n", exists, manager.StatePath())
@@ -65,5 +67,5 @@ func buildDoctorReport() (string, bool) {
 		report.WriteString("MCPのstandard以上のアクセス設定を確認してください。\n")
 	}
 	report.WriteString("\nこの診断はリプレイや録画設定を変更していません。\n")
-	return report.String(), client.CanEnableReplay() && runErr == nil && shortcutErr == nil
+	return report.String(), client.CanEnableReplay() && runErr == nil && shortcutErr == nil && manualHealthy
 }

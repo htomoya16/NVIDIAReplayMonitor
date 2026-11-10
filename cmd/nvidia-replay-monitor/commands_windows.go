@@ -105,6 +105,9 @@ func runCommand(opts options) (bool, int) {
 	case opts.uninstall:
 		var warning error
 		warning, err = uninstall(winapp.StopMonitor, restoreWarning, winapp.RemoveStartupShortcut)
+		if err == nil {
+			err = removeManualControlState()
+		}
 		message = "監視停止、警告設定の復元、自動起動ショートカットの解除が完了しました。\n配布ファイルの削除はuninstall.cmdで行います。"
 		if warning != nil {
 			message += "\n\n注意: " + warning.Error()

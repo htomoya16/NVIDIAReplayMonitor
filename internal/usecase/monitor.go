@@ -16,9 +16,21 @@ type ReplayClient interface {
 	EnableReplay(context.Context) error
 }
 
-type Monitor struct{ client ReplayClient }
+// RestoreControl checks user intent independently of NVIDIA's capture state.
+type RestoreControl interface {
+	AllowRestore(context.Context) (bool, error)
+}
+
+type Monitor struct {
+	client  ReplayClient
+	control RestoreControl
+}
 
 func NewMonitor(client ReplayClient) *Monitor { return &Monitor{client: client} }
+
+func NewControlledMonitor(client ReplayClient, control RestoreControl) *Monitor {
+	return &Monitor{client: client, control: control}
+}
 
 func (m *Monitor) Run(ctx context.Context) {
 	ticker := time.NewTicker(Interval)
@@ -41,6 +53,12 @@ func (m *Monitor) runOnTicks(ctx context.Context, ticks <-chan time.Time) {
 func (m *Monitor) restoreReplayIfDisabled(parent context.Context) error {
 	ctx, cancel := context.WithTimeout(parent, CycleTimeout)
 	defer cancel()
+	if m.control != nil {
+		allowed, err := m.control.AllowRestore(ctx)
+		if err != nil || !allowed {
+			return err
+		}
+	}
 	enabled, err := m.client.IsReplayEnabled(ctx)
 	if err != nil {
 		return err
