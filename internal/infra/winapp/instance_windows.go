@@ -65,6 +65,11 @@ func objectName(suffix string) (*uint16, error) {
 }
 
 func AcquireInstance() (*Instance, error) {
+	if active, err := installerActive(); err != nil {
+		return nil, err
+	} else if active {
+		return nil, ErrMaintenanceBusy
+	}
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
 		return nil, err
@@ -87,6 +92,15 @@ func AcquireInstance() (*Instance, error) {
 		return nil, err
 	}
 	instance := &Instance{mutex: mutex}
+	// Close the race with an installer that acquired its gate after our
+	// initial check and already looked for a running instance.
+	if active, err := installerActive(); err != nil || active {
+		instance.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrMaintenanceBusy
+	}
 	stopName, _ := objectName("Stop")
 	instance.stop, err = windows.CreateEvent(sa, 1, 0, stopName)
 	if err != nil {

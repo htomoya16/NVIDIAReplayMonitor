@@ -27,7 +27,7 @@ func parseOptions(args []string) (options, error) {
 	flags.BoolVar(&opts.stop, "stop", false, "監視を停止")
 	flags.BoolVar(&opts.uninstall, "uninstall", false, "監視停止と自動起動ショートカット削除")
 	flags.BoolVar(&opts.doctor, "doctor", false, "環境・接続状態を診断（状態は変更しません）")
-	flags.StringVar(&opts.output, "output", "", "doctorの出力先。指定時はダイアログを表示しません")
+	flags.StringVar(&opts.output, "output", "", "診断・停止・削除の結果を保存し、ダイアログを表示しません")
 	flags.StringVar(&opts.licenses, "licenses", "", "依存ライブラリのライセンスを指定ファイルへ出力")
 	flags.BoolVar(&opts.version, "version", false, "バージョンを表示")
 	flags.BoolVar(&opts.help, "help", false, "操作方法を表示")
@@ -50,8 +50,8 @@ func parseOptions(args []string) (options, error) {
 	if actions > 1 {
 		return opts, errors.New("操作オプションは1つだけ指定してください")
 	}
-	if opts.output != "" && !opts.doctor {
-		return opts, errors.New("--outputは--doctorと組み合わせてください")
+	if opts.output != "" && !opts.doctor && !opts.stop && !opts.uninstall {
+		return opts, errors.New("--outputは--doctor・--stop・--uninstallと組み合わせてください")
 	}
 	return opts, nil
 }
@@ -61,15 +61,13 @@ func runCommand(opts options) (bool, int) {
 		// Setup owns Maintenance while it runs. Request cancellation before
 		// waiting for that gate; otherwise the first uninstall is rejected.
 		if _, err := winapp.StopForUninstall(); err != nil {
-			showMessage(err.Error(), true)
-			return true, 1
+			return commandResult(opts, err.Error(), true)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		release, err := winapp.WaitMaintenance(ctx)
 		cancel()
 		if err != nil {
-			showMessage(err.Error(), true)
-			return true, 1
+			return commandResult(opts, err.Error(), true)
 		}
 		defer release()
 	}
@@ -108,7 +106,10 @@ func runCommand(opts options) (bool, int) {
 		if err == nil {
 			err = removeManualControlState()
 		}
-		message = "監視停止、警告設定の復元、自動起動ショートカットの解除が完了しました。\n配布ファイルの削除はuninstall.cmdで行います。"
+		if err == nil {
+			err = winapp.RemoveDiagnosticFiles()
+		}
+		message = "監視停止、警告設定の復元、自動起動ショートカットの解除が完了しました。"
 		if warning != nil {
 			message += "\n\n注意: " + warning.Error()
 		}
@@ -124,10 +125,25 @@ func runCommand(opts options) (bool, int) {
 		return false, 0
 	}
 	if err != nil {
-		showMessage(err.Error(), true)
+		return commandResult(opts, err.Error(), true)
+	}
+	return commandResult(opts, message, false)
+}
+
+// Installers use a UTF-8 result file rather than invisible GUI dialogs or
+// locale-dependent console output. A failed result write is itself a failure.
+func commandResult(opts options, message string, failure bool) (bool, int) {
+	if opts.output != "" {
+		if err := os.WriteFile(opts.output, []byte(message), 0600); err != nil {
+			fmt.Fprintln(os.Stderr, "操作結果を保存できません:", err)
+			return true, 1
+		}
+	} else {
+		showMessage(message, failure)
+	}
+	if failure {
 		return true, 1
 	}
-	showMessage(message, false)
 	return true, 0
 }
 

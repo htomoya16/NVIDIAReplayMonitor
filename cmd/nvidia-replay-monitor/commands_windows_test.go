@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"nvidiareplaymonitor/internal/infra/winapp"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -12,10 +14,25 @@ func TestCommandOptionsRejectAmbiguousActions(t *testing.T) {
 			t.Errorf("accepted %v", args)
 		}
 	}
-	for _, args := range [][]string{nil, {"--stop"}, {"--uninstall"}, {"--doctor"}, {"--doctor", "--output", "doctor.txt"}, {"--help"}} {
+	for _, args := range [][]string{nil, {"--stop"}, {"--uninstall"}, {"--doctor"}, {"--doctor", "--output", "doctor.txt"}, {"--stop", "--output", "result.txt"}, {"--uninstall", "--output", "result.txt"}, {"--help"}} {
 		if _, err := parseOptions(args); err != nil {
 			t.Errorf("%v: %v", args, err)
 		}
+	}
+}
+
+func TestInstallerResultsPreserveFailureExitCode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "result.txt")
+	for _, failure := range []bool{false, true} {
+		_, code := commandResult(options{output: path}, "日本語の結果", failure)
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != "日本語の結果" || (code != 0) != failure {
+			t.Fatalf("code=%d content=%s err=%v", code, data, err)
+		}
+	}
+	_, code := commandResult(options{output: filepath.Join(path, "missing", "result")}, "failed", false)
+	if code == 0 {
+		t.Fatal("failed output write announced success")
 	}
 }
 

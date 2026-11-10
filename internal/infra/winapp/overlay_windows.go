@@ -147,7 +147,7 @@ func waitForOverlayExit(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-deadline.C:
-			return errors.New("Overlayの子プロセス終了を確認できません。手動でオフにして再実行してください")
+			return errors.New("Overlayの終了を確認できません（子プロセスの残存または自動再起動）。NVIDIA Appの設定から「NVIDIA オーバーレイ」をオフにして再実行してください")
 		case <-tick.C:
 		}
 	}

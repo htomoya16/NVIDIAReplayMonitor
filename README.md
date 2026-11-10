@@ -14,17 +14,49 @@ NVIDIA Appのインスタントリプレイを30秒間隔で確認し、オフ�
 
 NVIDIA Appを開き、「設定」から「オーバーレイ」と「エージェントとアプリの接続」の各スイッチをオンにしてください。
 
-## 導入・自動起動
+## インストール
 
 1. GitHubの[Releases](https://github.com/htomoya16/NVIDIAReplayMonitor/releases)を開く。
 2. `NVIDIAReplayMonitor-<バージョン>-windows-amd64.zip` をダウンロードする。
 3. ZIPを右クリック →「すべて展開」を選ぶ。
-4. `Win + R` → `%LOCALAPPDATA%` を開く。
-5. 展開先にある `NVIDIAReplayMonitor` フォルダを、`%LOCALAPPDATA%` へ移動する。
-6. 配置したフォルダの `NVIDIAReplayMonitor.exe` を右クリック →「その他のオプションを確認」→「ショートカットの作成」を選ぶ。
-7. `Win + R` → `shell:startup` で開いたフォルダへ、作成した `NVIDIAReplayMonitor.exe - ショートカット` を移動する。
-8. スタートアップ内で、ショートカットの名前を `NVIDIAReplayMonitor` に変更する。(名前に `.exe` は付けないこと)
-9. ショートカットをダブルクリックして起動する。以後、Windowsへのログイン時に自動起動します。
+4. `NVIDIAReplayMonitor-<バージョン>-Setup.exe` を実行する。
+5. インストール先を選ぶ。既定値は `%LOCALAPPDATA%\NVIDIAReplayMonitor`。
+6. 「Windowsログイン時に起動する」「インストール完了後に起動する」を選び、インストールする。
+
+自動起動を選択すると、以後はWindowsへのログイン時に起動します。ショートカットの作成や名前変更は不要です。
+
+## 更新
+
+1. [Releases](https://github.com/htomoya16/NVIDIAReplayMonitor/releases)から新しいZIPをダウンロードして展開する。
+2. 新しい `NVIDIAReplayMonitor-<バージョン>-Setup.exe` を実行する。
+3. 画面の案内に従って更新する。
+
+監視は更新前に停止します。既存のインストール先、自動起動の選択、保留状態、NVIDIA設定の復元情報を引き継ぎます。事前のアンインストールは不要です。
+
+## アンインストール
+
+1. NVIDIA Appの録画・インスタントリプレイをオフにする。
+2. Windowsの「設定」→「アプリ」→「インストールされているアプリ」から、NVIDIAReplayMonitorをアンインストールする。
+
+インストール先の `unins000.exe` からもアンインストールできます。
+
+監視停止、通知設定の復元、自動起動解除後、インストールしたファイルを削除します。設定の復元に失敗した場合は削除を中止するため、表示された内容を確認して再実行してください。
+
+## 操作
+
+配置したフォルダでPowerShellを開いて実行します。
+
+| 操作 | コマンド |
+| --- | --- |
+| 起動 | `.\NVIDIAReplayMonitor.exe` |
+| 停止 | `.\NVIDIAReplayMonitor.exe --stop` |
+| 状態確認 | `.\NVIDIAReplayMonitor.exe --doctor` |
+
+NVIDIAオーバーレイのメニュー・設定スイッチ、またはインスタントリプレイ切替ショートカットで手動オフにすると、自動復帰を保留します。手動オンにすると再開します。操作は次の30秒周期までに反映され、保留状態はPC再起動後も維持します。初回起動より前の操作は対象外です。
+
+Discordで配信する間だけ停止したい場合は、配信前に手動オフにし、終了後に手動オンにしてください。配信開始を検知して自動で保留する機能はありません。DRMによる録画制限中は録画できません。
+
+手動操作の判別にはNVIDIA Overlayの内部ログを使用します。ログが読めない場合は自動復帰を控え、次の周期に再確認します。NVIDIA Appの更新でログ形式が変わると、手動操作を判別できなくなる場合があります。
 
 ## 通知の抑止
 
@@ -41,49 +73,16 @@ DRM保護コンテンツの視聴中は、30秒ごとの復帰試行によって
 
 設定変更時はNVIDIA オーバーレイを再起動します。録画・インスタントリプレイが動作中の場合は、オフになってから設定します。変更した通知設定はアンインストール時に元へ戻します。
 
-## 操作
-
-配置したフォルダでPowerShellを開いて実行します。
-
-| 操作 | コマンド |
-| --- | --- |
-| 起動 | `.\NVIDIAReplayMonitor.exe` |
-| 停止 | `.\NVIDIAReplayMonitor.exe --stop` |
-| 状態確認 | `.\NVIDIAReplayMonitor.exe --doctor` |
-| 常駐・自動起動の解除と通知設定の復元 | `.\NVIDIAReplayMonitor.exe --uninstall` |
-
-NVIDIAオーバーレイのメニュー・設定スイッチ、またはインスタントリプレイ切替ショートカットで手動オフにすると、自動復帰を保留します。手動オンにすると再開します。操作は次の30秒周期までに反映され、保留状態はPC再起動後も維持します。初回起動より前の操作は対象外です。
-
-Discordで配信する間だけ停止したい場合は、配信前に手動オフにし、終了後に手動オンにしてください。配信開始を検知して自動で保留する機能はありません。DRMによる録画制限中は録画できません。
-
-手動操作の判別にはNVIDIA Overlayの内部ログを使用します。ログが読めない場合は自動復帰を控え、次の周期に再確認します。NVIDIA Appの更新でログ形式が変わると、手動操作を判別できなくなる場合があります。
-
-## 更新
-
-1. `--stop` で監視を停止する。
-2. [Releases](https://github.com/htomoya16/NVIDIAReplayMonitor/releases)から新しいZIPをダウンロードして展開する。
-3. 展開した `NVIDIAReplayMonitor` フォルダ内のファイルを、配置済みの同名ファイルへ上書きする。
-4. exeまたはスタートアップのショートカットから起動する。
-
-## 削除
-
-1. NVIDIA Appの録画・インスタントリプレイをオフにする。
-2. 配置した `uninstall.cmd` をダブルクリックする。
-3. 完了表示を確認し、Enterキーで閉じる。
-
-監視停止・通知設定の復元・自動起動解除後、exeとuninstall.cmdを削除します。同梱READMEは内容が変更されていなければ削除します。フォルダと他のファイルは残ります。
-
-`--uninstall` を直接実行した場合は、配布ファイルは残ります。削除が完了するまで配置フォルダを手動で削除しないでください。
-
 ## 問題がある場合
 
 1. `--doctor` で状態を確認する。
 2. 動作条件の設定を確認する。
 
+アンインストール時にOverlayの終了確認で止まる場合は、NVIDIA Appの「設定」から「NVIDIA オーバーレイ」をオフにして再試行してください。削除後はオンに戻してください。
+
 | 記録 | 保存先 |
 | --- | --- |
 | 診断結果 | `%LOCALAPPDATA%\NVIDIAReplayMonitor\doctor.txt` |
-| アンインストール失敗時の詳細 | `%LOCALAPPDATA%\NVIDIAReplayMonitor\uninstall-error.txt` |
 | 手動操作・保留状態の保存情報 | `%LOCALAPPDATA%\NVIDIAReplayMonitor\manual-control.json` |
 
 ## 参考資料

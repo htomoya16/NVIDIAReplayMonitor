@@ -2,6 +2,7 @@ package winapp
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -16,6 +17,36 @@ func StartupShortcutPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, ShortcutName), nil
+}
+
+func RemoveDiagnosticFiles() error {
+	dir, err := windows.KnownFolderPath(windows.FOLDERID_LocalAppData, 0)
+	if err != nil {
+		return err
+	}
+	return removeDiagnosticFiles(filepath.Join(dir, "NVIDIAReplayMonitor"))
+}
+
+func removeDiagnosticFiles(dir string) error {
+	// Restoration must have completed before this is called. In particular,
+	// never remove warning-state.json or database backups as generic cleanup.
+	for _, name := range []string{"doctor.txt", "uninstall-error.txt", "warning-operation.lock"} {
+		path := filepath.Join(dir, name)
+		info, err := os.Lstat(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return fmt.Errorf("診断ファイルの場所にフォルダがあるため削除しません: %s", path)
+		}
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RemoveStartupShortcut only removes the single filename documented in the README.
