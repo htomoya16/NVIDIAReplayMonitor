@@ -63,10 +63,24 @@ function Assert([bool]$condition, [string]$message) {
     if (-not $condition) { throw $message }
 }
 
+function Wait-InstallerLog([string]$path) {
+    # The uninstaller bootstrap can disappear before its worker executes
+    # usPostUninstall. Wait for the worker's final log line, not file removal.
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    while ($timer.Elapsed.TotalSeconds -lt 20) {
+        if (Test-Path -LiteralPath $path) {
+            try { if ([IO.File]::ReadAllText($path).Contains('Log closed.')) { return } } catch { }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "Installer worker did not finish: $path"
+}
+
 function Install([string]$package, [string]$extra = '', [bool]$success = $true) {
     $log = Join-Path $testRoot ('setup-' + [Guid]::NewGuid().ToString('N') + '.log')
     $arguments = '/CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR="' + $applicationDir + '" /LOG="' + $log + '" ' + $extra
     $code = Invoke-TestProcess $package $arguments
+    Wait-InstallerLog $log
     Assert (($code -eq 0) -eq $success) "Setup exit=$code, expected success=$success. Log: $log"
 }
 
@@ -74,6 +88,7 @@ function Uninstall([bool]$success) {
     $uninstaller = Join-Path $applicationDir 'unins000.exe'
     $log = Join-Path $testRoot ('uninstall-' + [Guid]::NewGuid().ToString('N') + '.log')
     $code = Invoke-TestProcess $uninstaller ('/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG="' + $log + '"')
+    Wait-InstallerLog $log
     Assert (($code -eq 0) -eq $success) "Uninstall exit=$code, expected success=$success. Log: $log"
     if ($success) {
         $timer = [Diagnostics.Stopwatch]::StartNew()
